@@ -1,0 +1,23 @@
+-module(dmt).
+
+-export_type([version/0]).
+-export_type([head/0]).
+-export_type([ref/0]).
+-export_type([snapshot/0]).
+-export_type([commit/0]).
+-export_type([operation/0]).
+-export_type([history/0]).
+-export_type([object_ref/0]).
+-export_type([domain/0]).
+-export_type([domain_object/0]).
+
+-type version() :: dmt_domain_config_thrift:'Version'().
+-type head() :: dmt_domain_config_thrift:'Head'().
+-type ref() :: dmt_domain_config_thrift:'Reference'().
+-type snapshot() :: dmt_domain_config_thrift:'Snapshot'().
+-type commit() :: dmt_domain_config_thrift:'Commit'().
+-type operation() :: dmt_domain_config_thrift:'Operation'().
+-type history() :: dmt_domain_config_thrift:'History'().
+-type object_ref() :: dmt_domain_thrift:'Reference'().
+-type domain() :: dmt_domain_thrift:'Domain'().
+-type domain_object() :: dmt_domain_thrift:'DomainObject'().

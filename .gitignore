@@ -1,0 +1,12 @@
+# general
+log
+/_build/
+*~
+erl_crash.dump
+.tags*
+*.sublime-workspace
+.DS_Store
+
+#thrift
+/include/dmt_*_thrift.hrl
+/src/dmt_*_thrift.erl

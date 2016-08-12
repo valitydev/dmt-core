@@ -1,0 +1,4 @@
+[submodule "damsel"]
+	path = damsel
+	url = git@github.com:rbkmoney/damsel.git
+	branch = master
