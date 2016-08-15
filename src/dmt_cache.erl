@@ -45,7 +45,7 @@ checkout({version, Version}) ->
         [Snapshot] ->
             Snapshot;
         [] ->
-            throw(version_not_found)
+            throw({version_not_found, Version})
     end.
 
 -spec cache(dmt:version(), dmt:history()) -> dmt:snapshot().

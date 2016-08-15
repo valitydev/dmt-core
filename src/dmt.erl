@@ -1,4 +1,10 @@
 -module(dmt).
+-behaviour(application).
+-behaviour(supervisor).
+
+-export([start/2]).
+-export([stop/1]).
+-export([init/1]).
 
 -export_type([version/0]).
 -export_type([head/0]).
@@ -21,3 +27,17 @@
 -type object_ref() :: dmt_domain_thrift:'Reference'().
 -type domain() :: dmt_domain_thrift:'Domain'().
 -type domain_object() :: dmt_domain_thrift:'DomainObject'().
+
+start(_StartType, _Args) ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+
+-spec stop(term()) -> ok.
+
+stop(_State) ->
+    ok.
+
+%%
+
+init([]) ->
+    Cache = #{id => dmt_cache, start => {dmt_cache, start_link, []}, restart => permanent},
+    {ok, {#{strategy => one_for_one, intensity => 10, period => 60}, [Cache]}}.
