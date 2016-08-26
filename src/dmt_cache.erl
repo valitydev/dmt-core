@@ -78,6 +78,7 @@ init(_) ->
         {keypos, #'Snapshot'.version}
     ],
     ?TABLE = ets:new(?TABLE, EtsOpts),
+    true = ets:insert(?TABLE, #'Snapshot'{version = 0, domain = #{}}),
     {ok, #state{}}.
 
 -spec handle_call(term(), {pid(), term()}, state()) -> {reply, term(), state()}.
