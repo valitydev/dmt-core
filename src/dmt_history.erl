@@ -4,7 +4,7 @@
 -export([head/2]).
 -export([travel/3]).
 
--include("dmt_domain_config_thrift.hrl").
+-include_lib("dmsl/include/dmsl_domain_config_thrift.hrl").
 
 -spec head(dmt:history()) -> dmt:snapshot().
 head(History) when map_size(History) =:= 0 ->

@@ -17,16 +17,16 @@
 -export_type([domain/0]).
 -export_type([domain_object/0]).
 
--type version() :: dmt_domain_config_thrift:'Version'().
--type head() :: dmt_domain_config_thrift:'Head'().
--type ref() :: dmt_domain_config_thrift:'Reference'().
--type snapshot() :: dmt_domain_config_thrift:'Snapshot'().
--type commit() :: dmt_domain_config_thrift:'Commit'().
--type operation() :: dmt_domain_config_thrift:'Operation'().
--type history() :: dmt_domain_config_thrift:'History'().
--type object_ref() :: dmt_domain_thrift:'Reference'().
--type domain() :: dmt_domain_thrift:'Domain'().
--type domain_object() :: dmt_domain_thrift:'DomainObject'().
+-type version() :: dmsl_domain_config_thrift:'Version'().
+-type head() :: dmsl_domain_config_thrift:'Head'().
+-type ref() :: dmsl_domain_config_thrift:'Reference'().
+-type snapshot() :: dmsl_domain_config_thrift:'Snapshot'().
+-type commit() :: dmsl_domain_config_thrift:'Commit'().
+-type operation() :: dmsl_domain_config_thrift:'Operation'().
+-type history() :: dmsl_domain_config_thrift:'History'().
+-type object_ref() :: dmsl_domain_thrift:'Reference'().
+-type domain() :: dmsl_domain_thrift:'Domain'().
+-type domain_object() :: dmsl_domain_thrift:'DomainObject'().
 
 -spec start(normal, any()) ->
     {ok, pid()} | {error, any()}.

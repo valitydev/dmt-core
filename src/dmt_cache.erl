@@ -23,7 +23,7 @@
 -define(TABLE, ?MODULE).
 -define(SERVER, ?MODULE).
 
--include("dmt_domain_config_thrift.hrl").
+-include_lib("dmsl/include/dmsl_domain_config_thrift.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
 
 %%
