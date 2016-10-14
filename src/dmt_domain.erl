@@ -1,5 +1,5 @@
 -module(dmt_domain).
--include("dmt_domain_config_thrift.hrl").
+-include_lib("dmsl/include/dmsl_domain_config_thrift.hrl").
 
 %%
 
