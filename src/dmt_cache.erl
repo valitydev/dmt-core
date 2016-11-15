@@ -57,9 +57,14 @@ cache_snapshot(Snapshot) ->
     ok = gen_server:call(?SERVER, {cache_snapshot, Snapshot}),
     Snapshot.
 
--spec commit(dmt:commit()) -> ok.
+-spec commit(dmt:commit()) -> dmt:snapshot().
 commit(Commit) ->
-    gen_server:call(?SERVER, {commit, Commit}).
+    case gen_server:call(?SERVER, {commit, Commit}) of
+        {ok, Snapshot} ->
+            Snapshot;
+        {error, Error} ->
+            throw(Error)
+    end.
 
 %%
 
@@ -91,13 +96,18 @@ handle_call({cache_snapshot, Snapshot}, _From, State) ->
     true = ets:insert(?TABLE, Snapshot),
     {reply, ok, State};
 handle_call({commit, #'Commit'{ops = Ops}}, _From, State) ->
-    #'Snapshot'{version = Version, domain = Domain} = checkout({head, #'Head'{}}),
-    NewSnapshot = #'Snapshot'{
-        version = Version + 1,
-        domain = dmt_domain:apply_operations(Ops, Domain)
-    },
-    true = ets:insert(?TABLE, NewSnapshot),
-    {reply, NewSnapshot, State};
+    #'Snapshot'{version = Version, domain = Domain} = checkout_head(),
+    try
+        NewSnapshot = #'Snapshot'{
+            version = Version + 1,
+            domain = dmt_domain:apply_operations(Ops, Domain)
+        },
+        true = ets:insert(?TABLE, NewSnapshot),
+        {reply, {ok, NewSnapshot}, State}
+    catch
+        throw:Error ->
+            {reply, {error, Error}, State}
+    end;
 handle_call(_Msg, _From, State) ->
     {noreply, State}.
 

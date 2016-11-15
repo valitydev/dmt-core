@@ -43,6 +43,7 @@ revert_operations([{remove, #'RemoveOp'{object = Object}} | Rest], Domain) ->
 -spec insert(dmt:domain_object(), dmt:domain()) -> dmt:domain() | no_return().
 insert(Object, Domain) ->
     ObjectReference = get_ref(Object),
+    ok = check_correct_refs(Object, Domain),
     case maps:find(ObjectReference, Domain) of
         error ->
             maps:put(ObjectReference, Object, Domain);
@@ -53,6 +54,7 @@ insert(Object, Domain) ->
 -spec update(dmt:domain_object(), dmt:domain_object(), dmt:domain()) -> dmt:domain() | no_return().
 update(OldObject, NewObject, Domain) ->
     ObjectReference = get_ref(OldObject),
+    ok = check_correct_refs(NewObject, Domain),
     case get_ref(NewObject) of
         ObjectReference ->
             case maps:find(ObjectReference, Domain) of
@@ -70,6 +72,7 @@ update(OldObject, NewObject, Domain) ->
 -spec delete(dmt:domain_object(), dmt:domain()) -> dmt:domain() | no_return().
 delete(Object, Domain) ->
     ObjectReference = get_ref(Object),
+    ok = check_no_refs(Object, Domain),
     case maps:find(ObjectReference, Domain) of
         {ok, Object} ->
             maps:remove(ObjectReference, Domain);
@@ -79,12 +82,148 @@ delete(Object, Domain) ->
             raise_conflict({object_not_found, Object})
     end.
 
-%%TODO:elaborate
--spec get_ref(dmt:domain_object()) -> dmt:object_ref().
-get_ref({Tag, {_Type, Ref, _Data}}) ->
-    {Tag, Ref}.
-
 -spec raise_conflict(tuple()) -> no_return().
-
 raise_conflict(Why) ->
     throw({conflict, Why}).
+
+get_field(Field, Struct, StructInfo) when is_atom(Field) ->
+    FieldInfo  = get_field_info(Field, StructInfo),
+    FieldIndex = get_field_index(FieldInfo),
+    element(FieldIndex + 1, Struct).
+
+get_struct_info(StructName) ->
+    dmsl_domain_thrift:struct_info(StructName).
+
+get_field_info(Field, {struct, _StructType, FieldInfo}) ->
+    lists:keyfind(Field, 4, FieldInfo).
+
+get_field_index({Index, _Required, _Info, _Name, _}) ->
+    Index.
+
+check_correct_refs(DomainObject, Domain) ->
+    NonExistent = lists:filter(
+        fun(E) ->
+            not object_exists(E, Domain)
+        end,
+        references(DomainObject)
+    ),
+    case NonExistent of
+        [] ->
+            ok;
+        _ ->
+            integrity_check_failed({references_nonexistent, NonExistent})
+    end.
+
+check_no_refs(DomainObject, Domain) ->
+    case referenced_by(DomainObject, Domain) of
+        [] ->
+            ok;
+        Referenced ->
+            integrity_check_failed({referenced_by, Referenced})
+    end.
+
+referenced_by(DomainObject, Domain) ->
+    Ref = get_ref(DomainObject),
+    maps:fold(
+        fun(_K, V, Acc) ->
+            case lists:member(Ref, references(V)) of
+                true -> [V | Acc];
+                false -> Acc
+            end
+        end,
+        [],
+        Domain
+    ).
+
+references(DomainObject = {Tag, _Object}) ->
+    ObjectStructInfo = get_domain_object_schema(Tag),
+    Data = get_data(DomainObject),
+    {_, _, DataType, _, _} = get_field_info(data, ObjectStructInfo),
+    references(Data, DataType).
+
+references(Object, FieldType) ->
+    references(Object, FieldType, []).
+
+references(undefined, _StructInfo, Refs) ->
+    Refs;
+references({Tag, Object}, StructInfo = {struct, union, FieldsInfo}, Refs) when is_list(FieldsInfo) ->
+    {_, _, Type, _, _} = get_field_info(Tag, StructInfo),
+    check_reference_type(Object, Type, Refs);
+references(Object, {struct, struct, FieldsInfo}, Refs) when is_list(FieldsInfo) -> %% what if it's a union?
+    lists:foldl(
+        fun
+            ({N, _Required, FieldType, _Name, _}, Acc) ->
+                check_reference_type(element(N + 1, Object), FieldType, Acc)
+        end,
+        Refs,
+        FieldsInfo
+    );
+references(Object, {struct, _, {_, StructName}}, Refs) ->
+    StructInfo = get_struct_info(StructName),
+    check_reference_type(Object, StructInfo, Refs);
+references(Object, {list, FieldType}, Refs) ->
+    lists:foldl(
+        fun(O, Acc) ->
+            check_reference_type(O, FieldType, Acc)
+        end,
+        Refs,
+        Object
+    );
+references(Object, {set, FieldType}, Refs) ->
+    ListObject = ordsets:to_list(Object),
+    check_reference_type(ListObject, {list, FieldType}, Refs);
+references(Object, {map, KeyType, ValueType}, Refs) ->
+    check_reference_type(
+        maps:values(Object),
+        {list, ValueType},
+        check_reference_type(maps:keys(Object), {list, KeyType}, Refs)
+    );
+references(_DomainObject, _Primitive, Refs) ->
+    Refs.
+
+check_reference_type(Object, Type, Refs) ->
+    case is_reference_type(Type) of
+        {true, Tag} ->
+            [{Tag, Object} | Refs];
+        false ->
+            references(Object, Type, Refs)
+    end.
+
+-spec get_ref(dmt:domain_object()) -> dmt:object_ref().
+get_ref(DomainObject = {Tag, _Struct}) ->
+    {Tag, get_domain_object_field(ref, DomainObject)}.
+
+-spec get_data(dmt:domain_object()) -> any().
+get_data(DomainObject) ->
+    get_domain_object_field(data, DomainObject).
+
+get_domain_object_field(Field, {Tag, Struct}) ->
+    get_field(Field, Struct, get_domain_object_schema(Tag)).
+
+get_domain_object_schema(Tag) ->
+    SchemaInfo = get_struct_info('DomainObject'),
+    {_, _, {struct, _, {_, ObjectStructName}}, _, _} = get_field_info(Tag, SchemaInfo),
+    get_struct_info(ObjectStructName).
+
+object_exists(Ref, Domain) ->
+    case get_object(Ref, Domain) of
+        {ok, _Object} ->
+            true;
+        error ->
+            false
+    end.
+
+is_reference_type(Type) ->
+    {struct, union, StructInfo} = get_struct_info('Reference'),
+    is_reference_type(Type, StructInfo).
+
+is_reference_type(_Type, []) ->
+    false;
+is_reference_type(Type, [{_, _, Type, Tag, _} | _Rest]) ->
+    {true, Tag};
+is_reference_type(Type, [_ | Rest]) ->
+    is_reference_type(Type, Rest).
+
+-spec integrity_check_failed(Reason :: term()) -> no_return().
+integrity_check_failed(Reason) ->
+    throw({integrity_check_failed, Reason}).
