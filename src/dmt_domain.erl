@@ -10,12 +10,19 @@
 
 -define(DOMAIN, dmsl_domain_thrift).
 
+-export_type([operation_conflict/0]).
+
 %%
 
 -type operation() :: dmsl_domain_config_thrift:'Operation'().
 -type object_ref() :: dmsl_domain_thrift:'Reference'().
 -type domain() :: dmsl_domain_thrift:'Domain'().
 -type domain_object() :: dmsl_domain_thrift:'DomainObject'().
+-type operation_conflict() ::
+    {object_already_exists, object_ref()} |
+    {object_not_found, object_ref()} |
+    {object_reference_mismatch, object_ref()} |
+    {objects_not_exist, [{object_ref(), [object_ref()]}]}.
 
 -spec new() ->
     domain().
@@ -27,97 +34,117 @@ new() ->
 get_object(ObjectReference, Domain) ->
     maps:find(ObjectReference, Domain).
 
--spec apply_operations([operation()], domain()) -> domain() | no_return().
+-spec apply_operations([operation()], domain()) ->
+    {ok, domain()} | {error, operation_conflict()}.
 apply_operations(Operations, Domain) ->
     apply_operations(Operations, Domain, #{}).
 
 apply_operations([], Domain, Touched) ->
-    ok = integrity_check(Domain, Touched),
-    Domain;
+    case integrity_check(Domain, Touched) of
+        ok ->
+            {ok, Domain};
+        {error, _} = Error ->
+            Error
+    end;
 apply_operations(
     [{insert, #'InsertOp'{object = Object}} | Rest],
     Domain,
     Touched
 ) ->
-    apply_operations(
-        Rest,
-        insert(Object, Domain),
-        Touched#{get_ref(Object) => {insert, Object}}
-    );
+    case insert(Object, Domain) of
+        {ok, NewDomain} ->
+            apply_operations(
+                Rest,
+                NewDomain,
+                Touched#{get_ref(Object) => {insert, Object}}
+            );
+        {error, _} = Error ->
+            Error
+    end;
 apply_operations(
     [{update, #'UpdateOp'{old_object = OldObject, new_object = NewObject}} | Rest],
     Domain,
     Touched
 ) ->
-    apply_operations(
-        Rest,
-        update(OldObject, NewObject, Domain),
-        Touched#{get_ref(NewObject) => {update, NewObject}}
-    );
+    case update(OldObject, NewObject, Domain) of
+        {ok, NewDomain} ->
+            apply_operations(
+                Rest,
+                NewDomain,
+                Touched#{get_ref(NewObject) => {update, NewObject}}
+            );
+        {error, _} = Error ->
+            Error
+    end;
 apply_operations(
     [{remove, #'RemoveOp'{object = Object}} | Rest],
     Domain,
     Touched
 ) ->
-    apply_operations(
-        Rest,
-        delete(Object, Domain),
-        Touched#{get_ref(Object) => {delete, Object}}
-    ).
+    case delete(Object, Domain) of
+        {ok, NewDomain} ->
+            apply_operations(
+                Rest,
+                NewDomain,
+                Touched#{get_ref(Object) => {delete, Object}}
+            );
+        {error, _} = Error ->
+            Error
+    end.
 
--spec revert_operations([operation()], domain()) -> domain() | no_return().
+%% TO DO: Add tests for revert_operations
+
+-spec revert_operations([operation()], domain()) -> {ok, domain()} | {error, operation_conflict()}.
 revert_operations([], Domain) ->
-    Domain;
-revert_operations([{insert, #'InsertOp'{object = Object}} | Rest], Domain) ->
-    revert_operations(Rest, delete(Object, Domain));
-revert_operations([{update, #'UpdateOp'{old_object = OldObject, new_object = NewObject}} | Rest], Domain) ->
-    revert_operations(Rest, update(NewObject, OldObject, Domain));
-revert_operations([{remove, #'RemoveOp'{object = Object}} | Rest], Domain) ->
-    revert_operations(Rest, insert(Object, Domain)).
+    {ok, Domain};
+revert_operations([Operation | Rest], Domain) ->
+    case apply_operations([invert_operation(Operation)], Domain) of
+        {ok, NewDomain} ->
+            revert_operations(Rest, NewDomain);
+        {error, _} = Error ->
+            Error
+    end.
 
--spec insert(domain_object(), domain()) -> domain() | no_return().
+-spec insert(domain_object(), domain()) -> {ok, domain()} | {error, {object_already_exists, object_ref()}}.
 insert(Object, Domain) ->
     ObjectReference = get_ref(Object),
     case maps:find(ObjectReference, Domain) of
         error ->
-            maps:put(ObjectReference, Object, Domain);
+            {ok, maps:put(ObjectReference, Object, Domain)};
         {ok, ObjectWas} ->
-            raise_conflict({object_already_exists, ObjectWas})
+            {error, {object_already_exists, get_ref(ObjectWas)}}
     end.
 
--spec update(domain_object(), domain_object(), domain()) -> domain() | no_return().
+-spec update(domain_object(), domain_object(), domain()) ->
+    {ok, domain()} |
+    {error, {object_not_found, object_ref()} | {object_reference_mismatch, object_ref()}}.
 update(OldObject, NewObject, Domain) ->
     ObjectReference = get_ref(OldObject),
     case get_ref(NewObject) of
         ObjectReference ->
             case maps:find(ObjectReference, Domain) of
                 {ok, OldObject} ->
-                    maps:put(ObjectReference, NewObject, Domain);
+                    {ok, maps:put(ObjectReference, NewObject, Domain)};
                 {ok, _ObjectWas} ->
-                    raise_conflict({object_not_found, OldObject});
+                    {error, {object_not_found, ObjectReference}};
                 error ->
-                    raise_conflict({object_not_found, OldObject})
+                    {error, {object_not_found, ObjectReference}}
             end;
         NewObjectReference ->
-            raise_conflict({object_reference_mismatch, NewObjectReference})
+            {error, {object_reference_mismatch, NewObjectReference}}
     end.
 
--spec delete(domain_object(), domain()) -> domain() | no_return().
+-spec delete(domain_object(), domain()) -> {ok, domain()} | {error, {object_not_found, object_ref()}}.
 delete(Object, Domain) ->
     ObjectReference = get_ref(Object),
     case maps:find(ObjectReference, Domain) of
         {ok, Object} ->
-            maps:remove(ObjectReference, Domain);
+            {ok, maps:remove(ObjectReference, Domain)};
         {ok, _ObjectWas} ->
-            raise_conflict({object_not_found, Object});
+            {error, {object_not_found, ObjectReference}};
         error ->
-            raise_conflict({object_not_found, Object})
+            {error, {object_not_found, ObjectReference}}
     end.
-
--spec raise_conflict(tuple()) -> no_return().
-raise_conflict(Why) ->
-    throw({conflict, Why}).
-
 
 integrity_check(Domain, Touched) when is_map(Touched) ->
     integrity_check(Domain, maps:values(Touched));
@@ -126,16 +153,28 @@ integrity_check(_Domain, []) ->
     ok;
 
 integrity_check(Domain, [{insert, Object} | Rest]) ->
-    ok = check_correct_refs(Object, Domain),
-    integrity_check(Domain, Rest);
+    case check_correct_refs(Object, Domain) of
+        ok ->
+            integrity_check(Domain, Rest);
+        {error, _} = Error ->
+            Error
+    end;
 
 integrity_check(Domain, [{update, Object} | Rest]) ->
-    ok = check_correct_refs(Object, Domain),
-    integrity_check(Domain, Rest);
+    case check_correct_refs(Object, Domain) of
+        ok ->
+            integrity_check(Domain, Rest);
+        {error, _} = Error ->
+            Error
+    end;
 
 integrity_check(Domain, [{delete, Object} | Rest]) ->
-    ok = check_no_refs(Object, Domain),
-    integrity_check(Domain, Rest).
+    case check_no_refs(Object, Domain) of
+        ok ->
+            integrity_check(Domain, Rest);
+        {error, _} = Error ->
+            Error
+    end.
 
 get_field(Field, Struct, StructInfo) when is_atom(Field) ->
     FieldIndex = get_field_index(Field, StructInfo),
@@ -173,7 +212,10 @@ check_correct_refs(DomainObject, Domain) ->
         [] ->
             ok;
         _ ->
-            integrity_check_failed({references_nonexistent, NonExistent})
+            Ref = get_ref(DomainObject),
+            {error, {objects_not_exist,
+                lists:map(fun(X) -> {X, [Ref]} end, NonExistent)
+            }}
     end.
 
 check_no_refs(DomainObject, Domain) ->
@@ -181,7 +223,7 @@ check_no_refs(DomainObject, Domain) ->
         [] ->
             ok;
         Referenced ->
-            integrity_check_failed({referenced_by, Referenced})
+            {error, {objects_not_exist, [{get_ref(DomainObject), Referenced}]}}
     end.
 
 referenced_by(DomainObject, Domain) ->
@@ -189,7 +231,7 @@ referenced_by(DomainObject, Domain) ->
     maps:fold(
         fun(_K, V, Acc) ->
             case lists:member(Ref, references(V)) of
-                true -> [V | Acc];
+                true -> [get_ref(V) | Acc];
                 false -> Acc
             end
         end,
@@ -288,6 +330,9 @@ is_reference_type(Type, [{_, _, Type, Tag, _} | _Rest]) ->
 is_reference_type(Type, [_ | Rest]) ->
     is_reference_type(Type, Rest).
 
--spec integrity_check_failed(Reason :: term()) -> no_return().
-integrity_check_failed(Reason) ->
-    throw({integrity_check_failed, Reason}).
+invert_operation({insert, #'InsertOp'{object = Object}}) ->
+    {remove, #'RemoveOp'{object = Object}};
+invert_operation({update, #'UpdateOp'{old_object = OldObject, new_object = NewObject}}) ->
+    {update, #'UpdateOp'{old_object = NewObject, new_object = OldObject}};
+invert_operation({remove, #'RemoveOp'{object = Object}}) ->
+    {insert, #'InsertOp'{object = Object}}.

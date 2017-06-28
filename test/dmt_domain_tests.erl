@@ -15,51 +15,51 @@ basic_flow_test_() ->
     Fixture = construct_fixture(),
     [
         ?_assertEqual(
-            Fixture,
+            {ok, Fixture},
             dmt_domain:apply_operations([], Fixture)
         ),
-        ?_assertThrow(
-            {conflict, {object_already_exists, ?dummy_link(1337, 42)}},
+        ?_assertEqual(
+            {error, {object_already_exists, {dummy_link, #domain_DummyLinkRef{id = 1337}}}},
             dmt_domain:apply_operations([?insert(?dummy_link(1337, 43))], Fixture)
         ),
-        ?_assertThrow(
-            {integrity_check_failed, {references_nonexistent, [{dummy, #domain_DummyRef{id = 0}}]}},
+        ?_assertEqual(
+            {error, {objects_not_exist, [{{dummy, #domain_DummyRef{id = 0}}, [{dummy_link, #domain_DummyLinkRef{id = 1}}]}]}},
             dmt_domain:apply_operations([?insert(?dummy_link(1, 0))], Fixture)
         ),
-        ?_assertThrow(
-            {integrity_check_failed, {referenced_by, [?dummy_link(1337, 42)]}},
+        ?_assertEqual(
+            {error, {objects_not_exist, [{{dummy, #domain_DummyRef{id = 42}}, [{dummy_link, #domain_DummyLinkRef{id = 1337}}]}]}},
             dmt_domain:apply_operations([?remove(?dummy(42))], Fixture)
         ),
         ?_assertMatch(
-            #{},
+            {ok, #{}},
             dmt_domain:apply_operations([?remove(?dummy_link(1337, 42)), ?remove(?dummy(42)), ?remove(?dummy(44))], Fixture)
         ),
-        ?_assertThrow(
-            {conflict, {object_not_found, ?dummy(1)}},
+        ?_assertEqual(
+            {error, {object_not_found, {dummy, #domain_DummyRef{id = 1}}}},
             dmt_domain:apply_operations([?remove(?dummy(1))], Fixture)
         ),
-        ?_assertThrow(
-            {conflict, {object_not_found, ?dummy(41)}},
+        ?_assertEqual(
+            {error, {object_not_found, {dummy, #domain_DummyRef{id = 41}}}},
             dmt_domain:apply_operations([?remove(?dummy(41)), ?remove(?dummy(41))], Fixture)
         ),
-        ?_assertThrow(
-            {integrity_check_failed, {references_nonexistent, [{dummy, #domain_DummyRef{id = 0}}]}},
+        ?_assertEqual(
+            {error, {objects_not_exist, [{{dummy, #domain_DummyRef{id = 0}}, [{dummy_link, #domain_DummyLinkRef{id = 1337}}]}]}},
             dmt_domain:apply_operations([?update(?dummy_link(1337, 42), ?dummy_link(1337, 0))], Fixture)
         ),
         ?_assertMatch(
-            #{},
+            {ok, #{}},
             dmt_domain:apply_operations([?update(?dummy_link(1337, 42), ?dummy_link(1337, 44))], Fixture)
         ),
-        ?_assertThrow(
-            {conflict, {object_reference_mismatch, {dummy, #domain_DummyRef{id = 1}}}},
+        ?_assertEqual(
+            {error, {object_reference_mismatch, {dummy, #domain_DummyRef{id = 1}}}},
             dmt_domain:apply_operations([?update(?dummy(42), ?dummy(1))], Fixture)
         ),
-        ?_assertThrow(
-            {conflict, {object_not_found, ?dummy_link(1, 42)}},
+        ?_assertEqual(
+            {error, {object_not_found, {dummy_link, #domain_DummyLinkRef{id = 1}}}},
             dmt_domain:apply_operations([?update(?dummy_link(1, 42), ?dummy_link(1, 44))], Fixture)
         ),
-        ?_assertThrow(
-            {conflict, {object_not_found, ?dummy_link(1337, 1)}},
+        ?_assertEqual(
+            {error, {object_not_found, {dummy_link, #domain_DummyLinkRef{id = 1337}}}},
             dmt_domain:apply_operations([?update(?dummy_link(1337, 1), ?dummy_link(1337, 42))], Fixture)
         )
     ].
@@ -110,25 +110,23 @@ nested_links_test() ->
             default_contract_template = ?contract_template_ref(1)
         }
     },
-    ?assertThrow(
-            {integrity_check_failed,
-                {
-                    references_nonexistent,
-                    [
-                        {contract_template, ?contract_template_ref(1)},
-                        {inspector, ?inspector_ref(1)},
-                        {system_account_set, ?system_account_set_ref(0)},
-                        {provider, ?provider_ref(2)},
-                        {provider, ?provider_ref(1)},
-                        {provider, ?provider_ref(0)},
-                        {category, ?category_ref(0)},
-                        {party_prototype, ?party_prototype_ref(0)}
-                    ]
-                }
-            },
-            dmt_domain:apply_operations([?insert({globals, DomainObject})], construct_fixture())
-        )
-    .
+    ?assertEqual(
+        {error,
+            {objects_not_exist,
+                [
+                    {{contract_template, ?contract_template_ref(1)}, [{globals,{domain_GlobalsRef}}]},
+                    {{inspector, ?inspector_ref(1)}, [{globals,{domain_GlobalsRef}}]},
+                    {{system_account_set, ?system_account_set_ref(0)}, [{globals,{domain_GlobalsRef}}]},
+                    {{provider, ?provider_ref(2)}, [{globals,{domain_GlobalsRef}}]},
+                    {{provider, ?provider_ref(1)}, [{globals,{domain_GlobalsRef}}]},
+                    {{provider, ?provider_ref(0)}, [{globals,{domain_GlobalsRef}}]},
+                    {{category, ?category_ref(0)}, [{globals,{domain_GlobalsRef}}]},
+                    {{party_prototype, ?party_prototype_ref(0)}, [{globals,{domain_GlobalsRef}}]}
+                ]
+            }
+        },
+        dmt_domain:apply_operations([?insert({globals, DomainObject})], construct_fixture())
+    ).
 
 batch_link_test() ->
     Sas = {system_account_set, #domain_SystemAccountSetObject{
@@ -151,7 +149,7 @@ batch_link_test() ->
         }
     }},
     ?assertMatch(
-        #{},
+        {ok, #{}},
         dmt_domain:apply_operations([?insert(Sas), ?insert(Currency)], #{})
     ).
 
@@ -193,7 +191,7 @@ wrong_spec_order_test() ->
         }
     },
     ?assertMatch(
-        #{},
+        {ok, #{}},
         dmt_domain:apply_operations(
             [?insert(Terminal), ?insert(Currency), ?insert(PaymentMethod)],
             construct_fixture()
