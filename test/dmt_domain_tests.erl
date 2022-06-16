@@ -4,16 +4,16 @@
 
 -include("dmt_domain_tests_helper.hrl").
 
--type testcase() :: {_, fun()}.
+-type testcase() :: {_, fun()} | {timeout, integer(), testcase()} | [testcase()].
 
 -spec test() -> _.
 -spec basic_flow_test_() -> [testcase()].
 -spec nested_links_test() -> _.
 -spec batch_link_test() -> _.
 -spec wrong_spec_order_test() -> _.
--spec reference_cycle_test_() -> [testcase()].
--spec random_reference_cycle_test_() -> [testcase()].
--spec complete_reference_cycle_test_() -> [testcase()].
+-spec reference_cycle_test_() -> testcase().
+-spec random_reference_cycle_test_() -> testcase().
+-spec complete_reference_cycle_test_() -> testcase().
 
 basic_flow_test_() ->
     Fixture = construct_fixture(),
@@ -23,51 +23,59 @@ basic_flow_test_() ->
             dmt_domain:apply_operations([], Fixture)
         ),
         ?_assertEqual(
-            {error, {conflict, {object_already_exists, ?dummy_link_ref(1337)}}},
-            dmt_domain:apply_operations([?insert(?dummy_link(1337, 43))], Fixture)
+            {error, {conflict, {object_already_exists, ?dummy_link_ref(<<"1337">>)}}},
+            dmt_domain:apply_operations([?insert(?dummy_link(<<"1337">>, <<"43">>))], Fixture)
         ),
         ?_assertEqual(
-            {error, {invalid, {objects_not_exist, [{?dummy_ref(0), [?dummy_link_ref(1)]}]}}},
-            dmt_domain:apply_operations([?insert(?dummy_link(1, 0))], Fixture)
+            {error, {invalid, {objects_not_exist, [{?dummy_ref(<<"0">>), [?dummy_link_ref(<<"1">>)]}]}}},
+            dmt_domain:apply_operations([?insert(?dummy_link(<<"1">>, <<"0">>))], Fixture)
         ),
         ?_assertEqual(
-            {error, {invalid, {objects_not_exist, [{?dummy_ref(42), [?dummy_link_ref(1337)]}]}}},
-            dmt_domain:apply_operations([?remove(?dummy(42))], Fixture)
+            {error, {invalid, {objects_not_exist, [{?dummy_ref(<<"42">>), [?dummy_link_ref(<<"1337">>)]}]}}},
+            dmt_domain:apply_operations([?remove(?dummy(<<"42">>))], Fixture)
         ),
         ?_assertMatch(
             {ok, #{}},
             dmt_domain:apply_operations(
-                [?remove(?dummy_link(1337, 42)), ?remove(?dummy(42)), ?remove(?dummy(44))],
+                [?remove(?dummy_link(<<"1337">>, <<"42">>)), ?remove(?dummy(<<"42">>)), ?remove(?dummy(<<"44">>))],
                 Fixture
             )
         ),
         ?_assertEqual(
-            {error, {conflict, {object_not_found, ?dummy_ref(1)}}},
-            dmt_domain:apply_operations([?remove(?dummy(1))], Fixture)
+            {error, {conflict, {object_not_found, ?dummy_ref(<<"1">>)}}},
+            dmt_domain:apply_operations([?remove(?dummy(<<"1">>))], Fixture)
         ),
         ?_assertEqual(
-            {error, {conflict, {object_not_found, ?dummy_ref(41)}}},
-            dmt_domain:apply_operations([?remove(?dummy(41)), ?remove(?dummy(41))], Fixture)
+            {error, {conflict, {object_not_found, ?dummy_ref(<<"41">>)}}},
+            dmt_domain:apply_operations([?remove(?dummy(<<"41">>)), ?remove(?dummy(<<"41">>))], Fixture)
         ),
         ?_assertEqual(
-            {error, {invalid, {objects_not_exist, [{?dummy_ref(0), [?dummy_link_ref(1337)]}]}}},
-            dmt_domain:apply_operations([?update(?dummy_link(1337, 42), ?dummy_link(1337, 0))], Fixture)
+            {error, {invalid, {objects_not_exist, [{?dummy_ref(<<"0">>), [?dummy_link_ref(<<"1337">>)]}]}}},
+            dmt_domain:apply_operations(
+                [?update(?dummy_link(<<"1337">>, <<"42">>), ?dummy_link(<<"1337">>, <<"0">>))], Fixture
+            )
         ),
         ?_assertMatch(
             {ok, #{}},
-            dmt_domain:apply_operations([?update(?dummy_link(1337, 42), ?dummy_link(1337, 44))], Fixture)
+            dmt_domain:apply_operations(
+                [?update(?dummy_link(<<"1337">>, <<"42">>), ?dummy_link(<<"1337">>, <<"44">>))], Fixture
+            )
         ),
         ?_assertEqual(
-            {error, {conflict, {object_reference_mismatch, ?dummy_ref(1)}}},
-            dmt_domain:apply_operations([?update(?dummy(42), ?dummy(1))], Fixture)
+            {error, {conflict, {object_reference_mismatch, ?dummy_ref(<<"1">>)}}},
+            dmt_domain:apply_operations([?update(?dummy(<<"42">>), ?dummy(<<"1">>))], Fixture)
         ),
         ?_assertEqual(
-            {error, {conflict, {object_not_found, ?dummy_link_ref(1)}}},
-            dmt_domain:apply_operations([?update(?dummy_link(1, 42), ?dummy_link(1, 44))], Fixture)
+            {error, {conflict, {object_not_found, ?dummy_link_ref(<<"1">>)}}},
+            dmt_domain:apply_operations(
+                [?update(?dummy_link(<<"1">>, <<"42">>), ?dummy_link(<<"1">>, <<"44">>))], Fixture
+            )
         ),
         ?_assertEqual(
-            {error, {conflict, {object_not_found, ?dummy_link_ref(1337)}}},
-            dmt_domain:apply_operations([?update(?dummy_link(1337, 1), ?dummy_link(1337, 42))], Fixture)
+            {error, {conflict, {object_not_found, ?dummy_link_ref(<<"1337">>)}}},
+            dmt_domain:apply_operations(
+                [?update(?dummy_link(<<"1337">>, <<"1">>), ?dummy_link(<<"1337">>, <<"42">>))], Fixture
+            )
         )
     ].
 
@@ -433,13 +441,13 @@ criterion_w_refs(ID, Refs) ->
 construct_fixture() ->
     maps:from_list([
         {{Type, Ref}, Object}
-        || Object = {Type, {_, Ref, _}} <- [
-               ?dummy(41),
-               ?dummy(42),
-               ?dummy(43),
-               ?dummy(44),
-               ?dummy_link(1337, 42),
-               ?dummy_link(1338, 43),
-               ?category(1, <<"testCategory">>, <<"testDescription">>)
-           ]
+     || Object = {Type, {_, Ref, _}} <- [
+            ?dummy(<<"41">>),
+            ?dummy(<<"42">>),
+            ?dummy(<<"43">>),
+            ?dummy(<<"44">>),
+            ?dummy_link(<<"1337">>, <<"42">>),
+            ?dummy_link(<<"1338">>, <<"43">>),
+            ?category(1, <<"testCategory">>, <<"testDescription">>)
+        ]
     ]).
