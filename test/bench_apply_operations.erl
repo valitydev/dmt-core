@@ -41,15 +41,15 @@ compute_operation_stats(#st{snapshot = Snapshot, history = History}) ->
     _ = io:format(user, "~n", []),
     [
         io:format(user, "~24.ts: ~p~n", Args)
-        || Args <- [
-               ["Snapshot version", Snapshot#domain_conf_Snapshot.version],
-               ["Snapshot size", maps:size(Snapshot#domain_conf_Snapshot.domain)],
-               ["Number of commits", maps:size(History)],
-               ["Number of operations", NumInserts + NumUpdates + NumRemoves],
-               ["Number of insertions", NumInserts],
-               ["Number of updates", NumUpdates],
-               ["Number of removals", NumRemoves]
-           ]
+     || Args <- [
+            ["Snapshot version", Snapshot#domain_conf_Snapshot.version],
+            ["Snapshot size", maps:size(Snapshot#domain_conf_Snapshot.domain)],
+            ["Number of commits", maps:size(History)],
+            ["Number of operations", NumInserts + NumUpdates + NumRemoves],
+            ["Number of insertions", NumInserts],
+            ["Number of updates", NumUpdates],
+            ["Number of removals", NumRemoves]
+        ]
     ],
     io:format(user, "~n", []).
 

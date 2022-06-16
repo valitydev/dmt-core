@@ -424,7 +424,7 @@ complete_reference_cycle_test_() ->
                     end
                 )}
         end
-        || N <- lists:seq(1, 9)
+     || N <- lists:seq(1, 9)
     ].
 
 binom(N, K) ->

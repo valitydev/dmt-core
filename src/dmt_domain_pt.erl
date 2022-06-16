@@ -7,9 +7,9 @@
 parse_transform(Forms, _Options) ->
     [
         erl_syntax:revert(FormNext)
-        || Form <- Forms,
-           FormNext <- [erl_syntax_lib:map(fun transform/1, Form)],
-           FormNext /= delete
+     || Form <- Forms,
+        FormNext <- [erl_syntax_lib:map(fun transform/1, Form)],
+        FormNext /= delete
     ].
 
 transform(Form) ->
@@ -40,7 +40,7 @@ transform_function(Name = is_reference_type, 1, FormWas) ->
                 none,
                 [erl_syntax:abstract({true, Tag})]
             )
-            || {_N, _Req, Type, Tag, _Default} <- StructInfo
+         || {_N, _Req, Type, Tag, _Default} <- StructInfo
         ] ++
             [
                 erl_syntax:clause(
