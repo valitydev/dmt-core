@@ -8,9 +8,5 @@
         damsel
     ]},
     {modules, []},
-    {maintainers, [
-        "Evgeny Levenets <e.levenets@rbkmoney.com>"
-    ]},
-    {licenses, []},
-    {links, ["https://github.com/rbkmoney/dmt_core"]}
+    {licenses, []}
 ]}.
