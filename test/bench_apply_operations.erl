@@ -72,6 +72,6 @@ count_commit_operations(Type, Ops) ->
         Ops
     ).
 
--spec bench_apply_operations(#st{}, _State) -> term().
+-spec bench_apply_operations(state(), _State) -> term().
 bench_apply_operations(#st{snapshot = Snapshot, history = History}, _) ->
     dmt_history:head(History, Snapshot).
