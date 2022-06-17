@@ -1,6 +1,6 @@
 -module(dmt_domain).
 
--include_lib("damsel/include/dmsl_domain_config_thrift.hrl").
+-include_lib("damsel/include/dmsl_domain_conf_thrift.hrl").
 
 -compile({parse_transform, dmt_domain_pt}).
 
@@ -19,7 +19,7 @@
 
 %%
 
--type operation() :: dmsl_domain_config_thrift:'Operation'().
+-type operation() :: dmsl_domain_conf_thrift:'Operation'().
 -type object_ref() :: dmsl_domain_thrift:'Reference'().
 -type domain() :: dmsl_domain_thrift:'Domain'().
 -type domain_object() :: dmsl_domain_thrift:'DomainObject'().
@@ -66,11 +66,11 @@ apply_operations(
 ) ->
     {Result, Touch} =
         case Op of
-            {insert, #'InsertOp'{object = Object}} ->
+            {insert, #domain_conf_InsertOp{object = Object}} ->
                 {insert(Object, Domain), {insert, Object}};
-            {update, #'UpdateOp'{old_object = OldObject, new_object = NewObject}} ->
+            {update, #domain_conf_UpdateOp{old_object = OldObject, new_object = NewObject}} ->
                 {update(OldObject, NewObject, Domain), {update, NewObject}};
-            {remove, #'RemoveOp'{object = Object}} ->
+            {remove, #domain_conf_RemoveOp{object = Object}} ->
                 {remove(Object, Domain), {remove, Object}}
         end,
     case Result of
@@ -470,9 +470,9 @@ is_reference_type(Type, [{_, _, Type, Tag, _} | _Rest]) ->
 is_reference_type(Type, [_ | Rest]) ->
     is_reference_type(Type, Rest).
 
-invert_operation({insert, #'InsertOp'{object = Object}}) ->
-    {remove, #'RemoveOp'{object = Object}};
-invert_operation({update, #'UpdateOp'{old_object = OldObject, new_object = NewObject}}) ->
-    {update, #'UpdateOp'{old_object = NewObject, new_object = OldObject}};
-invert_operation({remove, #'RemoveOp'{object = Object}}) ->
-    {insert, #'InsertOp'{object = Object}}.
+invert_operation({insert, #domain_conf_InsertOp{object = Object}}) ->
+    {remove, #domain_conf_RemoveOp{object = Object}};
+invert_operation({update, #domain_conf_UpdateOp{old_object = OldObject, new_object = NewObject}}) ->
+    {update, #domain_conf_UpdateOp{old_object = NewObject, new_object = OldObject}};
+invert_operation({remove, #domain_conf_RemoveOp{object = Object}}) ->
+    {insert, #domain_conf_InsertOp{object = Object}}.

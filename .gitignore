@@ -1,10 +1,13 @@
-# general
-log
+# Build artifacts
 /_build/
-/.rebar3/
-/ebin/
-*~
+*.o
+*.beam
+*.plt
+
+# Run artifacts
 erl_crash.dump
-.tags*
-*.sublime-workspace
-.DS_Store
+log
+
+# make stuff
+/.image.*
+Makefile.env

@@ -6,15 +6,17 @@
     bench_apply_operations/2
 ]).
 
--include_lib("damsel/include/dmsl_domain_config_thrift.hrl").
+-include_lib("damsel/include/dmsl_domain_conf_thrift.hrl").
 
--type snapshot() :: dmsl_domain_config_thrift:'Snapshot'().
--type commit() :: dmsl_domain_config_thrift:'Commit'().
+-type snapshot() :: dmsl_domain_conf_thrift:'Snapshot'().
+-type commit() :: dmsl_domain_conf_thrift:'Commit'().
 
 -record(st, {
-    snapshot = #'Snapshot'{version = 0, domain = dmt_domain:new()} :: snapshot(),
+    snapshot = #domain_conf_Snapshot{version = 0, domain = dmt_domain:new()} :: snapshot(),
     history = #{} :: #{_Version => commit()}
 }).
+
+-type state() :: #st{}.
 
 -spec repository_state() -> term().
 repository_state() ->
@@ -39,21 +41,21 @@ compute_operation_stats(#st{snapshot = Snapshot, history = History}) ->
     _ = io:format(user, "~n", []),
     [
         io:format(user, "~24.ts: ~p~n", Args)
-        || Args <- [
-               ["Snapshot version", Snapshot#'Snapshot'.version],
-               ["Snapshot size", maps:size(Snapshot#'Snapshot'.domain)],
-               ["Number of commits", maps:size(History)],
-               ["Number of operations", NumInserts + NumUpdates + NumRemoves],
-               ["Number of insertions", NumInserts],
-               ["Number of updates", NumUpdates],
-               ["Number of removals", NumRemoves]
-           ]
+     || Args <- [
+            ["Snapshot version", Snapshot#domain_conf_Snapshot.version],
+            ["Snapshot size", maps:size(Snapshot#domain_conf_Snapshot.domain)],
+            ["Number of commits", maps:size(History)],
+            ["Number of operations", NumInserts + NumUpdates + NumRemoves],
+            ["Number of insertions", NumInserts],
+            ["Number of updates", NumUpdates],
+            ["Number of removals", NumRemoves]
+        ]
     ],
     io:format(user, "~n", []).
 
 count_history_operations(Type, History = #{}) ->
     maps:fold(
-        fun(_, #'Commit'{ops = Ops}, N) ->
+        fun(_, #domain_conf_Commit{ops = Ops}, N) ->
             N + count_commit_operations(Type, Ops)
         end,
         0,
@@ -72,6 +74,6 @@ count_commit_operations(Type, Ops) ->
         Ops
     ).
 
--spec bench_apply_operations(#st{}, _State) -> term().
+-spec bench_apply_operations(state(), _State) -> term().
 bench_apply_operations(#st{snapshot = Snapshot, history = History}, _) ->
     dmt_history:head(History, Snapshot).
