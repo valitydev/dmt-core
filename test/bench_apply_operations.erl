@@ -12,7 +12,7 @@
 -type commit() :: dmsl_domain_conf_thrift:'Commit'().
 
 -record(st, {
-    snapshot = #domain_conf_Snapshot{version = 0, domain = dmt_domain:new()} :: snapshot(),
+    snapshot = #domain_conf_Snapshot{version = 0, domain = dmt_domain:new(), created_at = undefined} :: snapshot(),
     history = #{} :: #{_Version => commit()}
 }).
 
