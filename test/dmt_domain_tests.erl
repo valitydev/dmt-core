@@ -194,7 +194,14 @@ wrong_spec_order_test() ->
                 terms = #domain_ProvisionTermSet{
                     payments = #domain_PaymentsProvisionTerms{
                         categories = {value, [?category_ref(1)]},
-                        payment_methods = {value, [#domain_PaymentMethodRef{id = {bank_card, visa}}]},
+                        payment_methods =
+                            {value, [
+                                ?payment_method_ref(
+                                    {bank_card, #domain_BankCardPaymentMethod{
+                                        payment_system = #domain_PaymentSystemRef{id = <<"visa-ref">>}
+                                    }}
+                                )
+                            ]},
                         cash_flow = {value, []}
                     }
                 }
@@ -214,7 +221,11 @@ wrong_spec_order_test() ->
     PaymentMethod = {
         payment_method,
         #domain_PaymentMethodObject{
-            ref = ?payment_method_ref({bank_card, visa}),
+            ref = ?payment_method_ref(
+                {bank_card, #domain_BankCardPaymentMethod{
+                    payment_system = #domain_PaymentSystemRef{id = <<"visa-ref">>}
+                }}
+            ),
             data = #domain_PaymentMethodDefinition{
                 name = <<"VISA">>,
                 description = <<"VISA BANK CARD">>

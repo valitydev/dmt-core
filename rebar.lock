@@ -1,6 +1,6 @@
 [{<<"damsel">>,
   {git,"https://github.com/valitydev/damsel.git",
-       {ref,"4af31c2909963ba32b08ad9ce7a4aec477e6aa69"}},
+       {ref,"ab292d91f5265237351342675c8f69de17add673"}},
   0},
  {<<"genlib">>,
   {git,"https://github.com/rbkmoney/genlib.git",
