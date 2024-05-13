@@ -39,7 +39,14 @@ travel(To, History, #domain_conf_Snapshot{version = From, domain = Domain}) when
     end;
 travel(To, History, #domain_conf_Snapshot{version = From, domain = Domain}) when To < From ->
     #domain_conf_Commit{ops = Ops} = maps:get(From, History),
-    #domain_conf_Commit{created_at = CreatedAt} = maps:get(From - 1, History),
+    %% NOTE In case of backwards traversal of partial history of
+    %%      commits there may be no 'previous' commit. Use 'undefined'
+    %%      for creation timestamp as a fallback value.
+    CreatedAt =
+        case maps:get(From - 1, History, undefined) of
+            #domain_conf_Commit{created_at = T} -> T;
+            undefined -> undefined
+        end,
     case dmt_domain:revert_operations(Ops, Domain) of
         {ok, NewDomain} ->
             PreviousSnapshot = #domain_conf_Snapshot{
